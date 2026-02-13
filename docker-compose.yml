@@ -1,0 +1,110 @@
+# Kafka mit SASL/PLAIN gegen LDAP. Wenn OpenLDAP gestoppt wird, schlagen
+# Client-Verbindungen (Consumer, Kafdrop, Producer) fehl – zum Testen von
+# Ausfallverhalten: openldap stoppen (docker compose stop openldap).
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.7.0
+    container_name: zookeeper
+    hostname: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - kafka-net
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  openldap:
+    image: cleanstart/openldap:latest
+    container_name: openldap
+    hostname: openldap
+    ports:
+      - "10389:389"
+    networks:
+      - kafka-net
+    volumes:
+      - ./openldap/data:/var/lib/openldap/openldap-data
+      - ./openldap/conf/slapd.conf:/etc/openldap/slapd.conf
+
+  kafka:
+    image: confluentinc/cp-server:7.7.0
+    container_name: kafka
+    hostname: kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+      openldap:
+        condition: service_started
+    environment:
+      # Log4j per Datei (siehe kafka/log4j.properties); SASL verlangt nicht-leeren KAFKA_OPTS
+      KAFKA_OPTS: "-Djava.awt.headless=true -Dlog4j.configuration=file:/etc/kafka/custom-log4j.properties"
+      # Broker
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # Listener: PLAINTEXT intern (Inter-Broker), SASL für Clients (LDAP) – intern (kafka:9092) und extern (localhost:9093)
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,SASL_INTERNAL:SASL_PLAINTEXT,SASL_EXTERNAL:SASL_PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,SASL_INTERNAL://0.0.0.0:9092,SASL_EXTERNAL://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,SASL_INTERNAL://kafka:9092,SASL_EXTERNAL://localhost:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      # SASL/PLAIN mit LDAP (beide Client-Listener)
+      KAFKA_LISTENER_NAME_SASL__INTERNAL_SASL_ENABLED_MECHANISMS: PLAIN
+      KAFKA_LISTENER_NAME_SASL__INTERNAL_PLAIN_SASL_JAAS_CONFIG: "org.apache.kafka.common.security.plain.PlainLoginModule required;"
+      KAFKA_LISTENER_NAME_SASL__INTERNAL_PLAIN_SASL_SERVER_CALLBACK_HANDLER_CLASS: io.confluent.security.auth.provider.ldap.LdapAuthenticateCallbackHandler
+      KAFKA_LISTENER_NAME_SASL__EXTERNAL_SASL_ENABLED_MECHANISMS: PLAIN
+      KAFKA_LISTENER_NAME_SASL__EXTERNAL_PLAIN_SASL_JAAS_CONFIG: "org.apache.kafka.common.security.plain.PlainLoginModule required;"
+      KAFKA_LISTENER_NAME_SASL__EXTERNAL_PLAIN_SASL_SERVER_CALLBACK_HANDLER_CLASS: io.confluent.security.auth.provider.ldap.LdapAuthenticateCallbackHandler
+      # LDAP-Verbindung für Authentifizierung
+      KAFKA_LDAP_JAVA_NAMING_PROVIDER_URL: ldap://openldap:389
+      KAFKA_LDAP_JAVA_NAMING_SECURITY_PRINCIPAL: cn=admin,dc=acme,dc=org
+      KAFKA_LDAP_JAVA_NAMING_SECURITY_CREDENTIALS: admin
+      KAFKA_LDAP_JAVA_NAMING_SECURITY_AUTHENTICATION: simple
+      KAFKA_LDAP_USER_SEARCH_BASE: ou=people,dc=acme,dc=org
+      KAFKA_LDAP_USER_NAME_ATTRIBUTE: uid
+      KAFKA_LDAP_USER_OBJECT_CLASS: inetOrgPerson
+    volumes:
+      - ./kafka/log4j.properties:/etc/kafka/custom-log4j.properties:ro
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    networks:
+      - kafka-net
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafdrop:
+    image: obsidiandynamics/kafdrop:latest
+    container_name: kafdrop
+    hostname: kafdrop
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      # An SASL-Listener (9092), damit Kafdrop über LDAP authentifiziert
+      KAFKA_BROKERCONNECT: kafka:9092
+      # SASL/PLAIN mit LDAP-Benutzer (kafka / kafka-secret aus ldap/bootstrap.ldif)
+      KAFKA_PROPERTIES: "Ym9vdHN0cmFwLnNlcnZlcnM9a2Fma2E6OTA5MgpzZWN1cml0eS5wcm90b2NvbD1TQVNMX1BMQUlOVEVYVApzYXNsLm1lY2hhbmlzbT1QTEFJTgpzYXNsLmphYXMuY29uZmlnPW9yZy5hcGFjaGUua2Fma2EuY29tbW9uLnNlY3VyaXR5LnBsYWluLlBsYWluTG9naW5Nb2R1bGUgcmVxdWlyZWQgdXNlcm5hbWU9ImthZmthIiBwYXNzd29yZD0ia2Fma2Etc2VjcmV0IjsK"
+      JVM_OPTS: "-Xms32M -Xmx64M"
+      SERVER_PORT: 9000
+    ports:
+      - "9000:9000"
+    networks:
+      - kafka-net
+
+networks:
+  kafka-net:
+    driver: bridge
+
+volumes:
+  openldap-data:

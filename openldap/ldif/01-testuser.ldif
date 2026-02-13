@@ -1,0 +1,10 @@
+# Testuser in ou=people (gleiche OU wie kafka)
+# ou=people wird in 02-kafkauser.ldif angelegt – vor diesem Import ausführen
+dn: uid=testuser,ou=people,dc=acme,dc=org
+objectClass: inetOrgPerson
+objectClass: person
+objectClass: top
+uid: testuser
+sn: Test
+cn: Testuser
+userPassword: testpw

@@ -1,0 +1,8 @@
+# LDAP-Administrator (entspricht rootdn in slapd.conf)
+# Bind: cn=admin,dc=acme,dc=org / Passwort: admin
+dn: cn=admin,dc=acme,dc=org
+objectClass: organizationalRole
+objectClass: simpleSecurityObject
+cn: admin
+userPassword: admin
+description: LDAP Administrator

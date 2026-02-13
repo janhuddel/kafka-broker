@@ -1,0 +1,15 @@
+# ou=people und Kafka-User für SASL (Kafdrop, Producer, Consumer)
+# Compose: Kafdrop nutzt username=kafka, password=kafka-secret
+dn: ou=people,dc=acme,dc=org
+objectClass: organizationalUnit
+ou: people
+
+dn: uid=kafka,ou=people,dc=acme,dc=org
+objectClass: inetOrgPerson
+objectClass: person
+objectClass: top
+uid: kafka
+sn: Kafka
+givenName: Kafka
+cn: Kafka User
+userPassword: kafka-secret
