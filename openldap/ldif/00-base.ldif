@@ -1,0 +1,4 @@
+dn: dc=acme,dc=org
+objectClass: top
+objectClass: domain
+dc: acme

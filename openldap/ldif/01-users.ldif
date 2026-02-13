@@ -1,0 +1,10 @@
+dn: ou=users,dc=acme,dc=org
+objectClass: organizationalUnit
+ou: users
+
+dn: uid=testuser,ou=users,dc=acme,dc=org
+objectClass: inetOrgPerson
+uid: testuser
+sn: Test
+cn: Testuser
+userPassword: testpw

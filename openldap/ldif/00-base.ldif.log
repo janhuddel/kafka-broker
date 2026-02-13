@@ -1,0 +1,7 @@
+#!RESULT OK
+#!CONNECTION ldap://localhost:10389
+#!DATE 2026-02-13T14:38:10.275
+dn: dc=acme,dc=org
+objectClass: top
+objectClass: domain
+dc: acme

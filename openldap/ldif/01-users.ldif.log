@@ -1,0 +1,16 @@
+#!RESULT OK
+#!CONNECTION ldap://localhost:10389
+#!DATE 2026-02-13T14:38:22.733
+dn: ou=users,dc=acme,dc=org
+objectClass: organizationalUnit
+ou: users
+
+#!RESULT OK
+#!CONNECTION ldap://localhost:10389
+#!DATE 2026-02-13T14:38:22.739
+dn: uid=testuser,ou=users,dc=acme,dc=org
+objectClass: inetOrgPerson
+uid: testuser
+sn: Test
+cn: Testuser
+userPassword: testpw
